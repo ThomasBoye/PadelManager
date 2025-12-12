@@ -1,190 +1,497 @@
 <!DOCTYPE html>
 <html lang="da">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
 <title>Padel Manager</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI"; margin:0; padding:12px; background:#f2f2f7; }
-h1,h2,h3 { text-align:center; margin:8px 0; }
-.card { background:#fff; border-radius:16px; padding:12px; margin-bottom:14px; box-shadow:0 4px 10px rgba(0,0,0,.08); }
-input { width:100%; padding:8px; font-size:14px; border-radius:10px; border:1px solid #ccc; }
-button { width:100%; padding:10px; font-size:14px; border:none; border-radius:12px; background:#007aff; color:#fff; margin-top:4px; }
-button.secondary { background:#e5e5ea; color:#000; }
-.row { display:flex; gap:8px; }
-.row > * { flex:1; }
-label { font-size:12px; color:#666; }
-.list { font-size:13px; }
-.match { border-top:1px solid #eee; padding-top:8px; margin-top:8px; }
-.elo-plus { color:green; }
-.elo-minus { color:red; }
+  :root{--blue:#007aff;--bg:#f2f2f7;--card:#fff;--muted:#666}
+  html,body{height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    margin:0;padding:12px;background:var(--bg);color:#111}
+  h1{margin:6px 0 8px;text-align:center;font-size:20px}
+  .card{background:var(--card);border-radius:12px;padding:10px;margin-bottom:12px;box-shadow:0 4px 10px rgba(0,0,0,.06)}
+  .compact {padding:6px}
+  label{display:block;font-size:13px;color:var(--muted);margin-top:6px}
+  input[type="text"], input[type="date"], input[type="number"]{
+    width:100%;padding:8px;border-radius:10px;border:1px solid #ddd;font-size:15px;box-sizing:border-box;
+    -webkit-appearance:none
+  }
+  .small{font-size:13px;color:var(--muted);margin-top:6px}
+  .muted{color:var(--muted);font-size:13px}
+  .row{display:flex;gap:8px}
+  .row > *{flex:1}
+  button{width:100%;padding:10px;border-radius:10px;border:none;background:var(--blue);color:white;font-weight:600}
+  button.ghost{background:#efefef;color:#111}
+  .list{font-size:14px;margin-top:8px}
+  .player-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0}
+  .pill{background:#f0f0f0;padding:4px 8px;border-radius:999px;font-size:13px}
+  .match{padding:8px 0;border-bottom:1px solid #f0f0f0}
+  .elo-plus{color:green}
+  .elo-minus{color:red}
+  canvas{width:100%;height:220px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .legend .item{display:flex;gap:6px;align-items:center;font-size:13px}
+  .color-box{width:12px;height:12px;border-radius:2px;display:inline-block}
+  @media (max-width:420px){ h1{font-size:18px} }
 </style>
 </head>
 <body>
+<h1>🎾 Padel Manager</h1>
 
-<h1>Padel Manager</h1>
-
-<div class="card" style="padding:6px;">
-<h2 style="font-size:16px; margin-bottom:6px;">1️⃣ Spillere</h2>
-<input id="newPlayer" placeholder="Skriv navn og tryk Enter" />
-<div id="playerList" class="list"></div>
+<!-- 1. Players (compact) -->
+<div class="card compact" id="card-players">
+  <h2 style="font-size:15px;margin:0 0 6px">1️⃣ Spillere (masterliste)</h2>
+  <input id="input-player" type="text" placeholder="Skriv navn og tryk Enter (tilføj)" autocapitalize="words" autocomplete="off" />
+  <div class="small">Skriv én spiller ad gangen. Tryk Enter — ingen knap nødvendig.</div>
+  <div id="player-list" class="list"></div>
 </div>
 
+<!-- 2. Select players for today -->
 <div class="card">
-<h2>2️⃣ Dato & dagens spillere</h2>
-<label>Dato</label>
-<input type="date" id="matchDate" />
-<div id="todayPlayers" class="list"></div>
-<button class="secondary" type="button" id="makeTeamsBtn">Lav hold</button>
+  <h2 style="font-size:15px;margin:0 0 6px">2️⃣ Tilgængelige spillere i dag</h2>
+  <label for="matchDate">Dato</label>
+  <input id="matchDate" type="date" />
+  <div id="today-list" class="list small"></div>
+  <div style="margin-top:8px">
+    <button id="btn-make" class="ghost">Lav hold</button>
+  </div>
 </div>
 
+<!-- 3. Current match -->
 <div class="card">
-<h2>3️⃣ Kamp</h2>
-<p><strong id="teamA"></strong></p>
-<p><strong id="teamB"></strong></p>
-<label>Resultat (fx 6-4)</label>
-<div class="row">
-<input id="scoreA" placeholder="Hold A" />
-<input id="scoreB" placeholder="Hold B" />
-</div>
-<button type="button" id="saveMatchBtn">Gem kamp</button>
-<button class="secondary" type="button" id="cancelLastMatchBtn">Annuller sidste kamp</button>
-</div>
-
-<div class="card">
-<h2>🏆 Rangliste</h2>
-<div id="leaderboard"></div>
-<canvas id="eloChart" height="200"></canvas>
+  <h2 style="font-size:15px;margin:0 0 6px">3️⃣ Kamp</h2>
+  <div id="current-teams" class="small">Hold A: -<br>Hold B: -</div>
+  <label>Indtast slutresultat (partier)</label>
+  <div class="row">
+    <input id="scoreA" type="number" inputmode="numeric" placeholder="Hold A (fx 6)" />
+    <input id="scoreB" type="number" inputmode="numeric" placeholder="Hold B (fx 4)" />
+  </div>
+  <div style="margin-top:8px" class="row">
+    <button id="btn-save">Gem kamp</button>
+    <button id="btn-cancel-last" class="ghost">Annuller sidste</button>
+  </div>
+  <div class="small">Resultater lagres i historik; ELO beregnes automatisk.</div>
 </div>
 
+<!-- Leaderboard + chart -->
 <div class="card">
-<h2>📜 Historik</h2>
-<div id="history"></div>
-<button class="secondary" type="button" id="resetHistoryBtn">Nulstil historik</button>
+  <h2 style="font-size:15px;margin:0 0 6px">🏆 Rangliste</h2>
+  <div id="leaderboard" class="list"></div>
+  <canvas id="chart"></canvas>
+  <div id="chart-legend" class="legend"></div>
+</div>
+
+<!-- History -->
+<div class="card">
+  <h2 style="font-size:15px;margin:0 0 6px">📜 Historik</h2>
+  <div id="history" class="list"></div>
+  <div style="margin-top:8px" class="row">
+    <button id="btn-reset-history" class="ghost">Nulstil historik</button>
+    <button id="btn-reset-all" class="ghost">Nulstil alt</button>
+  </div>
 </div>
 
 <script>
+/* Padel Manager - self contained single-file app
+   Features:
+   - ENTER-only add players
+   - delete players
+   - select today's players
+   - make teams (minimize prior pairings)
+   - input final score (e.g. 6-4)
+   - recompute ELO across history, show delta per match
+   - cancel match (remove) and recompute all elos
+   - reset history, reset all
+   - leaderboard always visible
+   - canvas line chart for each player's ELO over time (no external libs)
+*/
+
+// --- Utilities
+const $ = id => document.getElementById(id);
+const STORAGE_PLAYERS = 'padel_players_v1';
+const STORAGE_HISTORY = 'padel_history_v1';
 const K = 32;
-let players = JSON.parse(localStorage.getItem('players')||'[]');
-let history = JSON.parse(localStorage.getItem('matchHistory')||'[]');
-let teamA=[], teamB=[];
-let eloChart;
 
-function save(){
-  localStorage.setItem('players', JSON.stringify(players));
-  localStorage.setItem('matchHistory', JSON.stringify(history));
+// deterministic color per name
+function colorForName(name){
+  let h = 0;
+  for (let i=0;i<name.length;i++) h = (h<<5)-h + name.charCodeAt(i);
+  const r = (h>>16)&255; const g = (h>>8)&255; const b = h&255;
+  return `rgb(${(r+100)%220}, ${(g+80)%220}, ${(b+50)%220})`;
 }
 
-function $(id){return document.getElementById(id);}
+// --- App state
+let players = JSON.parse(localStorage.getItem(STORAGE_PLAYERS) || '[]'); // [{name, elo}]
+let historyArr = JSON.parse(localStorage.getItem(STORAGE_HISTORY) || '[]'); // newest first
+let selectedToday = []; // names
+let currentTeams = {A:[], B:[]};
 
+// --- Persistence helpers
+function saveAll(){
+  localStorage.setItem(STORAGE_PLAYERS, JSON.stringify(players));
+  localStorage.setItem(STORAGE_HISTORY, JSON.stringify(historyArr));
+}
+
+// --- Core: recompute ELOs from history (chronological)
+function recomputeAll(){
+  // reset players elos to 1500 baseline
+  players.forEach(p=>p.elo = 1500);
+  // reset pair counts
+  const pairCount = {};
+  // process oldest -> newest
+  const seq = historyArr.slice().reverse();
+  seq.forEach(match=>{
+    // determine team members' current elo
+    const pa = match.teamA.map(n => players.find(p=>p.name===n));
+    const pb = match.teamB.map(n => players.find(p=>p.name===n));
+    if(pa.includes(undefined) || pb.includes(undefined)){
+      // a player was removed; skip this match
+      return;
+    }
+    const avgA = (pa[0].elo + pa[1].elo)/2;
+    const avgB = (pb[0].elo + pb[1].elo)/2;
+    const expA = 1 / (1 + Math.pow(10, (avgB - avgA)/400));
+    const resA = match.scoreA > match.scoreB ? 1 : 0;
+    const diff = match.scoreA - match.scoreB;
+    const gf = diff / 6;
+    const deltaA = Math.round(K * ((resA - expA) + gf));
+    const deltaB = -deltaA;
+    // apply
+    pa.forEach(p => p.elo = (p.elo || 1500) + deltaA);
+    pb.forEach(p => p.elo = (p.elo || 1500) + deltaB);
+    // store computed deltas on match for display (overwrite to be consistent)
+    match.deltas = [
+      { name: pa[0].name, delta: deltaA },
+      { name: pa[1].name, delta: deltaA },
+      { name: pb[0].name, delta: deltaB },
+      { name: pb[1].name, delta: deltaB },
+    ];
+    // pair history counts
+    const k1 = pairKey(pa[0].name, pa[1].name);
+    const k2 = pairKey(pb[0].name, pb[1].name);
+    pairCount[k1] = (pairCount[k1]||0) + 1;
+    pairCount[k2] = (pairCount[k2]||0) + 1;
+  });
+  saveAll();
+  return pairCount;
+}
+
+function pairKey(a,b){ return [a,b].sort().join('-'); }
+
+// --- UI rendering
 function renderPlayers(){
-  $('playerList').innerHTML = players.map((p,i)=>`${p.name} (${p.elo}) <button onclick='deletePlayer(${i})'>Slet</button>`).join('<br>');
-  $('todayPlayers').innerHTML = players.map((p,i)=>`<label><input type='checkbox' data-i='${i}'> ${p.name}</label>`).join('<br>');
-  renderLeaderboard();
-  renderChart();
+  const el = $('player-list');
+  if(players.length===0){ el.innerHTML = '<em>Ingen spillere endnu</em>'; return; }
+  el.innerHTML = '';
+  players.forEach((p,i)=>{
+    const div = document.createElement('div');
+    div.className = 'player-row';
+    const left = document.createElement('div');
+    left.innerHTML = `<strong>${p.name}</strong>`;
+    const right = document.createElement('div');
+    right.style.display='flex';
+    right.style.gap='8px';
+    right.innerHTML = `<span class="pill">${p.elo}</span>`;
+    const del = document.createElement('button');
+    del.className='ghost';
+    del.style.padding='6px 8px';
+    del.style.background='#ff3b30'; del.style.color='#fff'; del.style.border='none'; del.style.borderRadius='8px';
+    del.textContent = 'Slet';
+    del.onclick = ()=>{ if(confirm(`Slet ${p.name}? Dette fjerner også vedkommendes kampe.`)){ deletePlayer(i); } };
+    right.appendChild(del);
+    div.appendChild(left);
+    div.appendChild(right);
+    el.appendChild(div);
+  });
 }
 
-function deletePlayer(i){
-  if(confirm(`Slet spilleren ${players[i].name}?`)){
-    players.splice(i,1);
-    save();
-    renderPlayers();
-  }
+function renderTodayList(){
+  const el = $('today-list');
+  if(players.length===0){ el.innerHTML = '<em>Ingen spillere oprettet</em>'; return; }
+  el.innerHTML = '';
+  players.forEach((p,i)=>{
+    const lbl = document.createElement('label');
+    lbl.style.display='block';
+    const cb = document.createElement('input');
+    cb.type='checkbox';
+    cb.dataset.i = i;
+    cb.checked = selectedToday.includes(p.name);
+    cb.onchange = () => {
+      if(cb.checked) selectedToday.push(p.name);
+      else selectedToday = selectedToday.filter(n=>n!==p.name);
+      saveAll(); // not strictly necessary but persist selection not required across sessions
+    };
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(' '+p.name));
+    el.appendChild(lbl);
+  });
 }
 
 function renderLeaderboard(){
-  const lb = players.slice().sort((a,b)=>b.elo-a.elo);
-  $('leaderboard').innerHTML = lb.map((p,i)=>`${i+1}. ${p.name} – ${p.elo}`).join('<br>');
-}
-
-function renderChart(){
-  const labels = history.map(h=>h.date).reverse();
-  const datasets = players.map(p=>{
-    const data = history.map(h=>{
-      const player = [...h.teamA,...h.teamB].find(pl=>pl.name===p.name);
-      return player ? player.elo : null;
-    }).reverse();
-    return { label: p.name, data, fill:false, borderColor:randomColor(), tension:0.3 };
-  });
-  if(eloChart) eloChart.destroy();
-  const ctx = $('eloChart').getContext('2d');
-  eloChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: { responsive:true, interaction:{mode:'index', intersect:false}, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}}}
-  });
-}
-
-function randomColor(){
-  const r=Math.floor(Math.random()*200)+30;
-  const g=Math.floor(Math.random()*200)+30;
-  const b=Math.floor(Math.random()*200)+30;
-  return `rgb(${r},${g},${b})`;
+  const lbEl = $('leaderboard');
+  if(players.length===0){ lbEl.innerHTML = '<em>Ingen spillere</em>'; return; }
+  const sorted = players.slice().sort((a,b)=>b.elo - a.elo);
+  lbEl.innerHTML = sorted.map((p,i)=>`${i+1}. ${p.name} — <strong>${p.elo}</strong>`).join('<br>');
 }
 
 function renderHistory(){
-  $('history').innerHTML = history.length ? history.map((h,i)=>`<div class='match'><strong>${h.date}</strong><br>${h.teamA.map(p=>p.name).join(' & ')} vs ${h.teamB.map(p=>p.name).join(' & ')}<br>Resultat: ${h.score}<br>${[...h.teamA,...h.teamB].map(p=>`${p.name}: <span class='${p.delta>=0?'elo-plus':'elo-minus'}'>${p.delta>=0?'+':''}${p.delta}</span>`).join('<br>')}<br><button onclick='cancelMatch(${i})'>Annuller denne kamp</button></div>`).join('') : '<em>Ingen kampe endnu</em>';
+  const el = $('history');
+  if(historyArr.length===0){ el.innerHTML = '<em>Ingen kampe endnu</em>'; return; }
+  el.innerHTML = '';
+  historyArr.forEach((m, idx)=>{
+    const block = document.createElement('div');
+    block.className='match';
+    const date = document.createElement('div');
+    date.innerHTML = `<strong>${m.date}</strong>`;
+    const teams = document.createElement('div');
+    teams.innerHTML = `${m.teamA.join(' & ')} <strong>${m.scoreA}-${m.scoreB}</strong> ${m.teamB.join(' & ')}`;
+    const deltas = document.createElement('div');
+    deltas.className='small';
+    if(m.deltas && m.deltas.length){
+      deltas.innerHTML = 'ELO: ' + m.deltas.map(d=>`${d.name}: <span class="${d.delta>=0?'elo-plus':'elo-minus'}">${d.delta>0?'+':''}${d.delta}</span>`).join(', ');
+    }
+    const btn = document.createElement('button');
+    btn.className='ghost';
+    btn.style.marginTop='8px';
+    btn.textContent = 'Annuller denne kamp';
+    btn.onclick = ()=>{ if(confirm('Vil du annullere denne kamp? ELO vil blive rullet tilbage.')){ cancelMatch(idx); } };
+    block.appendChild(date); block.appendChild(teams); block.appendChild(deltas); block.appendChild(btn);
+    el.appendChild(block);
+  });
 }
 
-function addPlayer(){
-  const name = $('newPlayer').value.trim();
+// --- Chart: draw ELO curves from history
+function buildEloTimeline(){
+  // timeline points: start (if any) then each match date (chronological)
+  const timeline = historyArr.slice().reverse().map(h=>h.date); // oldest->newest
+  // include today label if no history
+  if(timeline.length===0) timeline.push(new Date().toISOString().slice(0,10));
+  const playersMap = {};
+  players.forEach(p=> playersMap[p.name] = [1500]); // start at 1500
+  // simulate chronological and push snapshots after each match
+  const seq = historyArr.slice().reverse();
+  seq.forEach(h=>{
+    // apply computed deltas (if present) to snapshot
+    players.forEach(p=>{
+      const foundDelta = h.deltas && h.deltas.find(d=>d.name===p.name);
+      let prev = playersMap[p.name][playersMap[p.name].length-1];
+      const nextVal = prev + (foundDelta?foundDelta.delta:0);
+      playersMap[p.name].push(nextVal);
+    });
+  });
+  // labels: for each timeline entry (oldest..newest) show date
+  const labels = historyArr.slice().reverse().map(h=>h.date);
+  if(labels.length===0) labels.push(new Date().toISOString().slice(0,10));
+  return {labels, playersMap};
+}
+
+function drawChart(){
+  const canvas = $('chart');
+  const ctx = canvas.getContext('2d');
+  // set backing-size for crispness
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = 220 * dpr;
+  ctx.scale(dpr, dpr);
+  // clear
+  ctx.clearRect(0,0,canvas.clientWidth,220);
+  // build data
+  const {labels, playersMap} = buildEloTimeline();
+  const padding = {left:40,right:16,top:10,bottom:28};
+  const w = canvas.clientWidth - padding.left - padding.right;
+  const h = 220 - padding.top - padding.bottom;
+  // compute y-range
+  let allVals = [];
+  Object.values(playersMap).forEach(arr=> allVals = allVals.concat(arr));
+  const minV = Math.min(...allVals, 1400) - 20;
+  const maxV = Math.max(...allVals, 1600) + 20;
+  // gridlines
+  ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+  const steps = 4;
+  ctx.font = '12px system-ui';
+  for(let i=0;i<=steps;i++){
+    const y = padding.top + (h * i / steps);
+    ctx.beginPath(); ctx.moveTo(padding.left,y); ctx.lineTo(padding.left + w, y); ctx.stroke();
+    const val = Math.round(maxV - ( (maxV-minV) * i / steps ));
+    ctx.fillStyle = '#999'; ctx.fillText(val, 4, y+4);
+  }
+  // x-axis labels
+  const n = labels.length;
+  labels.forEach((lab, idx)=>{
+    const x = padding.left + (n===1? w/2 : (w * idx / (n-1)));
+    ctx.fillStyle = '#666'; ctx.fillText(lab, x - 20, padding.top + h + 18);
+  });
+  // draw each player's line
+  Object.keys(playersMap).forEach(name=>{
+    const vals = playersMap[name];
+    ctx.beginPath();
+    const col = colorForName(name);
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    vals.forEach((v, idx)=>{
+      const x = padding.left + (n===1? w/2 : (w * idx / (n-1)));
+      const y = padding.top + ( (maxV - v) / (maxV - minV) ) * h;
+      if(idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // draw last point circle
+    const lastIdx = vals.length - 1;
+    const lx = padding.left + (n===1? w/2 : (w * lastIdx / (n-1)));
+    const ly = padding.top + ( (maxV - vals[lastIdx]) / (maxV - minV) ) * h;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(lx,ly,3,0,Math.PI*2); ctx.fill();
+  });
+  // draw legend
+  const legend = $('chart-legend');
+  legend.innerHTML = '';
+  Object.keys(playersMap).forEach(name=>{
+    const item = document.createElement('div'); item.className='item';
+    const colorBox = document.createElement('span'); colorBox.className='color-box'; colorBox.style.background = colorForName(name);
+    item.appendChild(colorBox); item.appendChild(document.createTextNode(' '+name));
+    legend.appendChild(item);
+  });
+}
+
+// --- Actions
+function addPlayer(name){
   if(!name) return;
+  if(players.find(p=>p.name.toLowerCase()===name.toLowerCase())) return alert('Spilleren findes allerede');
   players.push({name, elo:1500});
-  $('newPlayer').value = '';
-  save(); renderPlayers();
+  saveAll();
+  refreshAll();
+}
+
+function deletePlayer(index){
+  const name = players[index].name;
+  // remove player and any matches containing them
+  players.splice(index,1);
+  historyArr = historyArr.filter(m => !m.teamA.includes(name) && !m.teamB.includes(name));
+  recomputeAll();
+  saveAll();
+  refreshAll();
 }
 
 function makeTeams(){
-  const checked = [...document.querySelectorAll('#todayPlayers input:checked')].map(c=>players[c.dataset.i]);
-  if(checked.length<4) return alert('Vælg mindst 4 spillere');
-  teamA=[checked[0],checked[1]];
-  teamB=[checked[2],checked[3]];
-  $('teamA').innerText='Hold A: '+teamA.map(p=>p.name).join(' & ');
-  $('teamB').innerText='Hold B: '+teamB.map(p=>p.name).join(' & ');
+  const pool = selectedToday.length ? selectedToday.map(n=>players.find(p=>p.name===n)).filter(Boolean) : [];
+  if(pool.length < 4) return alert('Vælg mindst 4 spillere (marker i listen)');
+  // evaluate all combinations of 4 and the 3 split-options
+  const combos = [];
+  for(let a=0;a<pool.length;a++) for(let b=a+1;b<pool.length;b++)
+  for(let c=b+1;c<pool.length;c++) for(let d=c+1;d<pool.length;d++){
+    const quad = [pool[a],pool[b],pool[c],pool[d]];
+    const options = [
+      [[quad[0],quad[1]],[quad[2],quad[3]]],
+      [[quad[0],quad[2]],[quad[1],quad[3]]],
+      [[quad[0],quad[3]],[quad[1],quad[2]]]
+    ];
+    options.forEach(opt=>{
+      const keyA = pairKey(opt[0][0].name,opt[0][1].name);
+      const keyB = pairKey(opt[1][0].name,opt[1][1].name);
+      const cntA = countPairsInHistory()[keyA] || 0;
+      const cntB = countPairsInHistory()[keyB] || 0;
+      combos.push({tA:opt[0], tB:opt[1], score: cntA + cntB});
+    });
+  }
+  combos.sort((x,y)=>x.score - y.score);
+  const best = combos[0];
+  currentTeams.A = best.tA.map(p=>p.name);
+  currentTeams.B = best.tB.map(p=>p.name);
+  $('current-teams').innerHTML = `<div><strong>Hold A:</strong> ${currentTeams.A.join(' & ')}</div><div><strong>Hold B:</strong> ${currentTeams.B.join(' & ')}</div>`;
 }
 
-function finishMatch(){
-  const a=parseInt($('scoreA').value), b=parseInt($('scoreB').value);
-  if(isNaN(a)||isNaN(b)) return alert('Ugyldigt resultat');
-  const avgA=(teamA[0].elo+teamA[1].elo)/2;
-  const avgB=(teamB[0].elo+teamB[1].elo)/2;
-  const expA=1/(1+10**((avgB-avgA)/400));
-  const resA=a>b?1:0;
-  const diff=a-b;
-  teamA.forEach(p=>p.delta=Math.round(K*((resA-expA)+(diff/6))));
-  teamB.forEach(p=>p.delta=-teamA[0].delta);
-  teamA.forEach(p=>p.elo+=p.delta);
-  teamB.forEach(p=>p.elo+=p.delta);
-  history.unshift({date:$('matchDate').value||new Date().toISOString().slice(0,10), teamA:[...teamA], teamB:[...teamB], score:`${a}-${b}`});
-  save(); renderPlayers(); renderHistory();
+function countPairsInHistory(){
+  const pc = {};
+  historyArr.forEach(h=>{
+    const k1 = pairKey(h.teamA[0], h.teamA[1]);
+    const k2 = pairKey(h.teamB[0], h.teamB[1]);
+    pc[k1] = (pc[k1]||0) + 1;
+    pc[k2] = (pc[k2]||0) + 1;
+  });
+  return pc;
+}
+
+function saveMatch(){
+  if(currentTeams.A.length!==2 || currentTeams.B.length!==2) return alert('Lav hold først');
+  const a = parseInt($('scoreA').value,10); const b = parseInt($('scoreB').value,10);
+  if(Number.isNaN(a) || Number.isNaN(b)) return alert('Ugyldigt resultat');
+  // add match record newest-first
+  const dateVal = $('matchDate').value || (new Date().toISOString().slice(0,10));
+  historyArr.unshift({
+    date: dateVal,
+    teamA: [...currentTeams.A],
+    teamB: [...currentTeams.B],
+    scoreA: a,
+    scoreB: b,
+    deltas: [] // will be recomputed
+  });
+  recomputeAll(); // recomputes deltas and player elos
+  // clear inputs
+  $('scoreA').value=''; $('scoreB').value='';
+  refreshAll();
 }
 
 function cancelMatch(index){
-  if(confirm('Er du sikker på, du vil annullere denne kamp?')){
-    const match = history.splice(index,1)[0];
-    // Revert ELO
-    match.teamA.forEach(p => { const pl = players.find(x=>x.name===p.name); if(pl) pl.elo -= p.delta; });
-    match.teamB.forEach(p => { const pl = players.find(x=>x.name===p.name); if(pl) pl.elo -= p.delta; });
-    save(); renderPlayers(); renderHistory();
-  }
+  // index is index in historyArr (newest-first)
+  const confirmed = confirm('Bekræft annullering af kamp. Dette fjerner kampen fra historik og genberegner ELO.');
+  if(!confirmed) return;
+  historyArr.splice(index,1);
+  recomputeAll();
+  saveAll();
+  refreshAll();
+}
+
+function cancelLast(){
+  if(historyArr.length===0) return alert('Ingen kamp at annullere');
+  cancelMatch(0);
 }
 
 function resetHistory(){
-  if(confirm('Vil du nulstille al historik?')){
-    history=[];
-    players.forEach(p=>p.elo=1500);
-    save(); renderPlayers(); renderHistory();
-  }
+  if(!confirm('Nulstil al historik og sæt alle ELO til 1500?')) return;
+  historyArr = [];
+  players.forEach(p=>p.elo=1500);
+  saveAll();
+  refreshAll();
 }
 
-$('newPlayer').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addPlayer(); } });
-$('makeTeamsBtn').addEventListener('click', makeTeams);
-$('saveMatchBtn').addEventListener('click', finishMatch);
-$('cancelLastMatchBtn').addEventListener('click', ()=>{ if(history.length) cancelMatch(0); });
-$('resetHistoryBtn').addEventListener('click', resetHistory);
+function resetAll(){
+  if(!confirm('Nulstil alle data (spillere + historik)?')) return;
+  players = []; historyArr = []; selectedToday = []; currentTeams = {A:[],B:[]};
+  saveAll();
+  refreshAll();
+}
 
-renderPlayers(); renderHistory();
+// helpers to refresh UI
+function refreshAll(){
+  renderPlayers();
+  renderTodayList();
+  renderLeaderboard();
+  renderHistory();
+  drawChart();
+}
+
+// initialize bindings and events
+(function init(){
+  // load stored selection of today? we keep selection ephemeral; user toggles each day
+  // enter-only add player
+  $('input-player').addEventListener('keydown', e=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      const v = e.target.value.trim();
+      if(v) { addPlayer(v); e.target.value=''; }
+    }
+  });
+  // make teams
+  $('btn-make').addEventListener('click', makeTeams);
+  $('btn-save').addEventListener('click', saveMatch);
+  $('btn-cancel-last').addEventListener('click', cancelLast);
+  $('btn-reset-history').addEventListener('click', resetHistory);
+  $('btn-reset-all').addEventListener('click', resetAll);
+  // initial recompute in case old history exists
+  recomputeAll();
+  refreshAll();
+  // ensure canvas redraw on resize
+  window.addEventListener('resize', ()=>{ drawChart(); });
+})();
+
 </script>
 </body>
 </html>
