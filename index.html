@@ -1,190 +1,284 @@
 <!DOCTYPE html>
 <html lang="da">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
 <title>Padel Manager</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Padel Manager">
+
 <style>
-body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI"; margin:0; padding:12px; background:#f2f2f7; }
-h1,h2,h3 { text-align:center; margin:8px 0; }
-.card { background:#fff; border-radius:16px; padding:12px; margin-bottom:14px; box-shadow:0 4px 10px rgba(0,0,0,.08); }
-input { width:100%; padding:8px; font-size:14px; border-radius:10px; border:1px solid #ccc; }
-button { width:100%; padding:10px; font-size:14px; border:none; border-radius:12px; background:#007aff; color:#fff; margin-top:4px; }
-button.secondary { background:#e5e5ea; color:#000; }
-.row { display:flex; gap:8px; }
-.row > * { flex:1; }
-label { font-size:12px; color:#666; }
-.list { font-size:13px; }
-.match { border-top:1px solid #eee; padding-top:8px; margin-top:8px; }
-.elo-plus { color:green; }
-.elo-minus { color:red; }
+:root{--blue:#0a84ff;--bg:#000000;--card:#1c1c1e;--muted:#9a9a9a;--green:#30d158;--red:#ff453a}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;padding:12px;background:var(--bg);color:#ffffff}
+h1{text-align:center;font-size:20px;margin:8px 0}
+.card{background:var(--card);border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 4px 10px rgba(0,0,0,.6)}
+.compact{padding:6px}
+label{font-size:13px;color:var(--muted)}
+input,button{width:100%;padding:10px;font-size:15px;border-radius:10px;border:1px solid #ccc;box-sizing:border-box}
+button{background:var(--blue);color:#fff;border:none;font-weight:600}
+button.ghost{background:#eee;color:#000}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+.list{font-size:14px}
+.player{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #eee}
+.badge{font-size:12px;margin-left:6px}
+.green{color:var(--green)}
+.red{color:var(--red)}
+.match{border-top:1px solid #eee;padding-top:6px;margin-top:6px}
+canvas{width:100%;height:240px}
 </style>
 </head>
 <body>
+<h1>🎾 Padel Manager</h1>
 
-<h1>Padel Manager</h1>
-
-<div class="card" style="padding:6px;">
-<h2 style="font-size:16px; margin-bottom:6px;">1️⃣ Spillere</h2>
+<!-- Spillere -->
+<div class="card compact">
+<h2 style="font-size:15px;margin:0">Spillere</h2>
 <input id="newPlayer" placeholder="Skriv navn og tryk Enter" />
 <div id="playerList" class="list"></div>
 </div>
 
+<!-- Dato & dagens spillere -->
 <div class="card">
-<h2>2️⃣ Dato & dagens spillere</h2>
+<h2 style="font-size:15px;margin:0">Kampdag</h2>
 <label>Dato</label>
 <input type="date" id="matchDate" />
 <div id="todayPlayers" class="list"></div>
-<button class="secondary" type="button" id="makeTeamsBtn">Lav hold</button>
+<button id="makeTeamsBtn" class="ghost">Lav hold</button>
 </div>
 
+<!-- Kamp -->
 <div class="card">
-<h2>3️⃣ Kamp</h2>
-<p><strong id="teamA"></strong></p>
-<p><strong id="teamB"></strong></p>
-<label>Resultat (fx 6-4)</label>
+<h2 style="font-size:15px;margin:0">Aktuel kamp</h2>
+<div id="teams"></div>
 <div class="row">
-<input id="scoreA" placeholder="Hold A" />
-<input id="scoreB" placeholder="Hold B" />
+<input id="scoreA" placeholder="Hold A" inputmode="numeric" />
+<input id="scoreB" placeholder="Hold B" inputmode="numeric" />
 </div>
-<button type="button" id="saveMatchBtn">Gem kamp</button>
-<button class="secondary" type="button" id="cancelLastMatchBtn">Annuller sidste kamp</button>
+<div class="row" style="margin-top:6px">
+<button id="saveMatchBtn">Gem kamp</button>
+<button id="cancelLastBtn" class="ghost">Annuller sidste</button>
 </div>
-
-<div class="card">
-<h2>🏆 Rangliste</h2>
-<div id="leaderboard"></div>
-<canvas id="eloChart" height="200"></canvas>
 </div>
 
+<!-- Rangliste -->
 <div class="card">
-<h2>📜 Historik</h2>
-<div id="history"></div>
-<button class="secondary" type="button" id="resetHistoryBtn">Nulstil historik</button>
+<h2 style="font-size:15px;margin:0">🏆 Rangliste</h2>
+<div id="leaderboard" class="list"></div>
+<canvas id="eloChart"></canvas>
+</div>
+
+<!-- Dagens kampe -->
+<div class="card">
+<h2 style="font-size:15px;margin:0">Dagens kampe</h2>
+<div id="todayMatches" class="list"></div>
+</div>
+
+<!-- Historik -->
+<div class="card">
+<h2 style="font-size:15px;margin:0">Historik</h2>
+<div id="history" class="list"></div>
+<div class="row" style="margin-top:6px">
+<button id="resetHistoryBtn" class="ghost">Nulstil historik</button>
+<button id="resetAllBtn" class="ghost">Nulstil alt</button>
+</div>
 </div>
 
 <script>
+/**********************
+ * STATE & STORAGE
+ **********************/
 const K = 32;
-let players = JSON.parse(localStorage.getItem('players')||'[]');
-let history = JSON.parse(localStorage.getItem('matchHistory')||'[]');
-let teamA=[], teamB=[];
-let eloChart;
+const STORAGE = 'padel-manager-v2';
 
-function save(){
-  localStorage.setItem('players', JSON.stringify(players));
-  localStorage.setItem('matchHistory', JSON.stringify(history));
+let state = JSON.parse(localStorage.getItem(STORAGE)) || {
+  players: [], // {name, elo, history: [elo...]}
+  matches: []  // newest first
+};
+
+let rotationQueue = [];
+let currentTeams = null;
+
+const $ = id => document.getElementById(id);
+
+function save(){ localStorage.setItem(STORAGE, JSON.stringify(state)); }
+
+/**********************
+ * PLAYER MANAGEMENT
+ **********************/
+function addPlayer(name){
+  if(state.players.find(p=>p.name.toLowerCase()===name.toLowerCase())) return;
+  state.players.push({ name, elo:1500, history:[1500] });
+  save(); renderAll();
 }
 
-function $(id){return document.getElementById(id);}
-
-function renderPlayers(){
-  $('playerList').innerHTML = players.map((p,i)=>`${p.name} (${p.elo}) <button onclick='deletePlayer(${i})'>Slet</button>`).join('<br>');
-  $('todayPlayers').innerHTML = players.map((p,i)=>`<label><input type='checkbox' data-i='${i}'> ${p.name}</label>`).join('<br>');
-  renderLeaderboard();
-  renderChart();
+function deletePlayer(idx){
+  if(!confirm('Slet spiller og alle kampe?')) return;
+  const name = state.players[idx].name;
+  state.players.splice(idx,1);
+  state.matches = state.matches.filter(m=>!m.players.includes(name));
+  recomputeAll();
 }
 
-function deletePlayer(i){
-  if(confirm(`Slet spilleren ${players[i].name}?`)){
-    players.splice(i,1);
-    save();
-    renderPlayers();
-  }
-}
-
-function renderLeaderboard(){
-  const lb = players.slice().sort((a,b)=>b.elo-a.elo);
-  $('leaderboard').innerHTML = lb.map((p,i)=>`${i+1}. ${p.name} – ${p.elo}`).join('<br>');
-}
-
-function renderChart(){
-  const labels = history.map(h=>h.date).reverse();
-  const datasets = players.map(p=>{
-    const data = history.map(h=>{
-      const player = [...h.teamA,...h.teamB].find(pl=>pl.name===p.name);
-      return player ? player.elo : null;
-    }).reverse();
-    return { label: p.name, data, fill:false, borderColor:randomColor(), tension:0.3 };
-  });
-  if(eloChart) eloChart.destroy();
-  const ctx = $('eloChart').getContext('2d');
-  eloChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: { responsive:true, interaction:{mode:'index', intersect:false}, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}}}
-  });
-}
-
-function randomColor(){
-  const r=Math.floor(Math.random()*200)+30;
-  const g=Math.floor(Math.random()*200)+30;
-  const b=Math.floor(Math.random()*200)+30;
-  return `rgb(${r},${g},${b})`;
-}
-
-function renderHistory(){
-  $('history').innerHTML = history.length ? history.map((h,i)=>`<div class='match'><strong>${h.date}</strong><br>${h.teamA.map(p=>p.name).join(' & ')} vs ${h.teamB.map(p=>p.name).join(' & ')}<br>Resultat: ${h.score}<br>${[...h.teamA,...h.teamB].map(p=>`${p.name}: <span class='${p.delta>=0?'elo-plus':'elo-minus'}'>${p.delta>=0?'+':''}${p.delta}</span>`).join('<br>')}<br><button onclick='cancelMatch(${i})'>Annuller denne kamp</button></div>`).join('') : '<em>Ingen kampe endnu</em>';
-}
-
-function addPlayer(){
-  const name = $('newPlayer').value.trim();
-  if(!name) return;
-  players.push({name, elo:1500});
-  $('newPlayer').value = '';
-  save(); renderPlayers();
-}
-
+/**********************
+ * TEAM & ROTATION
+ **********************/
 function makeTeams(){
-  const checked = [...document.querySelectorAll('#todayPlayers input:checked')].map(c=>players[c.dataset.i]);
-  if(checked.length<4) return alert('Vælg mindst 4 spillere');
-  teamA=[checked[0],checked[1]];
-  teamB=[checked[2],checked[3]];
-  $('teamA').innerText='Hold A: '+teamA.map(p=>p.name).join(' & ');
-  $('teamB').innerText='Hold B: '+teamB.map(p=>p.name).join(' & ');
+  const selected = [...document.querySelectorAll('#todayPlayers input:checked')]
+    .map(cb=>state.players[cb.dataset.i]);
+  if(selected.length < 4) return alert('Vælg mindst 4 spillere');
+
+  if(selected.length > 4){
+    if(rotationQueue.length === 0) rotationQueue = [...selected.map(p=>p.name)];
+    const four = rotationQueue.splice(0,4);
+    rotationQueue.push(...four);
+    selected.splice(0,selected.length, ...four.map(n=>state.players.find(p=>p.name===n)));
+  }
+
+  currentTeams = {
+    A: [selected[0], selected[1]],
+    B: [selected[2], selected[3]]
+  };
+
+  $('teams').innerHTML = `Hold A: ${currentTeams.A.map(p=>p.name).join(' & ')}<br>Hold B: ${currentTeams.B.map(p=>p.name).join(' & ')}`;
+}
+
+/**********************
+ * MATCH & ELO
+ **********************/
+function validScore(a,b){
+  return (a===6 && b<=4) || (b===6 && a<=4) || (a===7 && (b===5||b===6)) || (b===7 && (a===5||a===6));
 }
 
 function finishMatch(){
-  const a=parseInt($('scoreA').value), b=parseInt($('scoreB').value);
-  if(isNaN(a)||isNaN(b)) return alert('Ugyldigt resultat');
-  const avgA=(teamA[0].elo+teamA[1].elo)/2;
-  const avgB=(teamB[0].elo+teamB[1].elo)/2;
-  const expA=1/(1+10**((avgB-avgA)/400));
-  const resA=a>b?1:0;
-  const diff=a-b;
-  teamA.forEach(p=>p.delta=Math.round(K*((resA-expA)+(diff/6))));
-  teamB.forEach(p=>p.delta=-teamA[0].delta);
-  teamA.forEach(p=>p.elo+=p.delta);
-  teamB.forEach(p=>p.elo+=p.delta);
-  history.unshift({date:$('matchDate').value||new Date().toISOString().slice(0,10), teamA:[...teamA], teamB:[...teamB], score:`${a}-${b}`});
-  save(); renderPlayers(); renderHistory();
+  if(!currentTeams) return alert('Lav hold først');
+  const a = parseInt(scoreA.value), b = parseInt(scoreB.value);
+  if(!validScore(a,b)) return alert('Ugyldigt resultat');
+
+  state.matches.unshift({
+    date: $('matchDate').value || new Date().toISOString().slice(0,10),
+    teamA: currentTeams.A.map(p=>p.name),
+    teamB: currentTeams.B.map(p=>p.name),
+    scoreA:a, scoreB:b,
+    players:[...currentTeams.A.map(p=>p.name),...currentTeams.B.map(p=>p.name)]
+  });
+
+  recomputeAll();
+  scoreA.value=''; scoreB.value=''; currentTeams=null;
 }
 
-function cancelMatch(index){
-  if(confirm('Er du sikker på, du vil annullere denne kamp?')){
-    const match = history.splice(index,1)[0];
-    // Revert ELO
-    match.teamA.forEach(p => { const pl = players.find(x=>x.name===p.name); if(pl) pl.elo -= p.delta; });
-    match.teamB.forEach(p => { const pl = players.find(x=>x.name===p.name); if(pl) pl.elo -= p.delta; });
-    save(); renderPlayers(); renderHistory();
-  }
+function recomputeAll(){
+  state.players.forEach(p=>{p.elo=1500; p.history=[1500];});
+
+  const chronological = [...state.matches].reverse();
+  chronological.forEach(m=>{
+    const pa = m.teamA.map(n=>state.players.find(p=>p.name===n));
+    const pb = m.teamB.map(n=>state.players.find(p=>p.name===n));
+    if(pa.includes(undefined) || pb.includes(undefined)) return;
+
+    const avgA=(pa[0].elo+pa[1].elo)/2;
+    const avgB=(pb[0].elo+pb[1].elo)/2;
+    const expA=1/(1+10**((avgB-avgA)/400));
+    const resA=m.scoreA>m.scoreB?1:0;
+    const diff=m.scoreA-m.scoreB;
+    const delta=Math.round(K*((resA-expA)+(diff/6)));
+
+    pa.forEach(p=>{p.elo+=delta; p.history.push(p.elo);});
+    pb.forEach(p=>{p.elo-=delta; p.history.push(p.elo);});
+  });
+
+  save(); renderAll();
 }
 
-function resetHistory(){
-  if(confirm('Vil du nulstille al historik?')){
-    history=[];
-    players.forEach(p=>p.elo=1500);
-    save(); renderPlayers(); renderHistory();
-  }
+/**********************
+ * RENDERING
+ **********************/
+function renderPlayers(){
+  $('playerList').innerHTML = state.players.map((p,i)=>
+    `<div class='player'>${p.name}<span>${p.elo} <button onclick='deletePlayer(${i})'>✕</button></span></div>`
+  ).join('');
 }
 
-$('newPlayer').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addPlayer(); } });
-$('makeTeamsBtn').addEventListener('click', makeTeams);
-$('saveMatchBtn').addEventListener('click', finishMatch);
-$('cancelLastMatchBtn').addEventListener('click', ()=>{ if(history.length) cancelMatch(0); });
-$('resetHistoryBtn').addEventListener('click', resetHistory);
+function renderTodayPlayers(){
+  $('todayPlayers').innerHTML = state.players.map((p,i)=>
+    `<label><input type='checkbox' data-i='${i}'> ${p.name}</label>`
+  ).join('<br>');
+}
 
-renderPlayers(); renderHistory();
+function renderLeaderboard(){
+  const sorted=[...state.players].sort((a,b)=>b.elo-a.elo);
+  $('leaderboard').innerHTML = sorted.map((p,i)=>{
+    const last = p.history[p.history.length-1]-p.history[p.history.length-2]||0;
+    return `${i+1}. ${p.name} – ${p.elo} <span class='badge ${last>=0?'green':'red'}'>${last>0?'+':''}${last}</span>`;
+  }).join('<br>');
+}
+
+function renderHistory(){
+  $('history').innerHTML = state.matches.map((m,i)=>
+    `<div class='match'>${m.date}: ${m.teamA.join(' & ')} ${m.scoreA}-${m.scoreB} ${m.teamB.join(' & ')} <button onclick='cancelMatch(${i})'>Annuller</button></div>`
+  ).join('');
+}
+
+function renderTodayMatches(){
+  const d=$('matchDate').value;
+  const list=state.matches.filter(m=>m.date===d);
+  $('todayMatches').innerHTML=list.length?list.map(m=>`${m.scoreA}-${m.scoreB}`).join('<br>'):'<em>Ingen kampe i dag</em>';
+}
+
+function cancelMatch(i){ if(confirm('Annuller kamp?')){ state.matches.splice(i,1); recomputeAll(); } }
+
+/**********************
+ * GRAPH (CANVAS)
+ **********************/
+function drawChart(){
+  const c=$('eloChart');
+  const ctx=c.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  c.width=c.clientWidth*dpr; c.height=240*dpr; ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,c.clientWidth,240);
+
+  const players=state.players;
+  if(players.length===0) return;
+
+  const max=Math.max(...players.flatMap(p=>p.history))+20;
+  const min=Math.min(...players.flatMap(p=>p.history))-20;
+
+  const w=c.clientWidth-40, h=200;
+
+  players.forEach(p=>{
+    ctx.beginPath();
+    ctx.strokeStyle=randomColor(p.name); ctx.lineWidth=2;
+    p.history.forEach((v,i)=>{
+      const x=20+(i/(p.history.length-1||1))*w;
+      const y=20+((max-v)/(max-min))*h;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  });
+}
+
+function randomColor(name){
+  let hash=0; for(let i=0;i<name.length;i++) hash=name.charCodeAt(i)+((hash<<5)-hash);
+  return `hsl(${hash%360},70%,50%)`;
+}
+
+function renderAll(){ renderPlayers(); renderTodayPlayers(); renderLeaderboard(); renderHistory(); renderTodayMatches(); drawChart(); }
+
+/**********************
+ * EVENTS
+ **********************/
+$('newPlayer').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addPlayer(e.target.value.trim()); e.target.value=''; } });
+$('makeTeamsBtn').onclick=makeTeams;
+$('saveMatchBtn').onclick=finishMatch;
+$('cancelLastBtn').onclick=()=>state.matches.length&&cancelMatch(0);
+$('resetHistoryBtn').onclick=()=>{ if(confirm('Nulstil historik?')){ state.matches=[]; recomputeAll(); } };
+$('resetAllBtn').onclick=()=>{ if(confirm('Nulstil alt?')){ state={players:[],matches:[]}; save(); renderAll(); } };
+
+renderAll();
 </script>
 </body>
 </html>
